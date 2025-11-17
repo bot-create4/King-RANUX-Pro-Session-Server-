@@ -1,4 +1,4 @@
-// server.js – King RANUX Session Server (CommonJS)
+// server.js – King RANUX Session Server
 
 const express = require("express");
 const cors = require("cors");
@@ -14,22 +14,33 @@ const {
 const app = express();
 const BRAND = "King RANUX";
 
-// in-memory maps
-const readySessions = new Map();      // phone -> base64 session
-const sessionRegistry = new Map();    // phone -> { timeout }
-const SESSION_TIMEOUT = 90_000;       // 90 seconds
+// phone -> { timeout }
+const sessionRegistry = new Map();
+const SESSION_TIMEOUT = 90_000; // 90 seconds
 
 app.use(express.json());
 app.use(cors());
-app.use(express.static(__dirname));   // serve pair.html from root
+app.use(express.static(__dirname)); // serve pair.html + assets
 
-// 🟢 POST /api/pair – create pairing code & start session
+function safeRm(dir) {
+  try {
+    if (fs.existsSync(dir)) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  } catch (e) {
+    console.error("Failed to remove dir:", dir, e);
+  }
+}
+
+/*───────────────────────────────────────
+  POST /api/pair
+────────────────────────────────────────*/
 app.post("/api/pair", async (req, res) => {
   try {
-    const phone = (req.body.phone || "").toString();
-    const cleaned = phone.replace(/\D/g, ""); // digits only
+    const phoneRaw = (req.body.phone || "").toString();
+    const cleaned = phoneRaw.replace(/\D/g, ""); // keep digits only
 
-    // basic validation: Sri Lanka style +94 7X...
+    // Basic LK validation: +94 7X XXX XXXX  =>  11 digits, starts with 94
     if (!cleaned.startsWith("94") || cleaned.length !== 11) {
       return res.json({
         status: false,
@@ -37,12 +48,11 @@ app.post("/api/pair", async (req, res) => {
       });
     }
 
-    // already pairing for this number
     if (sessionRegistry.has(cleaned)) {
       return res.json({
         status: false,
         message:
-          "A pairing session already exists for this number. Please wait or try again in a moment.",
+          "A pairing session already exists for this number. Please wait 1 minute and try again.",
       });
     }
 
@@ -58,31 +68,26 @@ app.post("/api/pair", async (req, res) => {
       auth: state,
       version,
       printQRInTerminal: false,
-      browser: ["Mac OS", "Safari", "10.15.7"], // pair with code
+      browser: ["Mac OS", "Safari", "14.0"],
     });
 
     sock.ev.on("creds.update", saveCreds);
 
-    // timeout: if user never completes linking
     const timeout = setTimeout(() => {
       console.log("⛔ TIMEOUT for", cleaned);
       sessionRegistry.delete(cleaned);
-      try {
-        fs.rmSync(authDir, { recursive: true, force: true });
-      } catch {}
+      safeRm(authDir);
     }, SESSION_TIMEOUT);
 
     sessionRegistry.set(cleaned, { timeout });
 
-    // connection updates
     sock.ev.on("connection.update", async (update) => {
-      const { connection } = update;
+      const { connection, lastDisconnect } = update || {};
 
       if (connection === "open") {
         console.log("✨ Paired with", cleaned);
 
         try {
-          // zip session -> base64 string
           const zip = new AdmZip();
           zip.addLocalFolder(authDir);
           const base64Session = zip.toBuffer().toString("base64");
@@ -100,36 +105,62 @@ ${base64Session}
 📌 Copy this SESSION_ID into your bot.
 ⚠ Do NOT share this with anyone!`;
 
-          // send to same number on WhatsApp
           await sock.sendMessage(jid, { text });
 
-          // store to show on site as well
-          readySessions.set(cleaned, base64Session);
-
-          // cleanup registry + timeout
+          console.log("🎉 Session generated and sent to WhatsApp:", cleaned);
+        } catch (err) {
+          console.error("Error after connection open for", cleaned, err);
+        } finally {
           const rec = sessionRegistry.get(cleaned);
           if (rec) clearTimeout(rec.timeout);
           sessionRegistry.delete(cleaned);
-
-          console.log("🎉 Session generated and sent to chat", cleaned);
-        } catch (err) {
-          console.error("Error after open for", cleaned, err);
-        } finally {
-          // OPTIONAL: delete auth folder if you don't want to keep it
-          // try { fs.rmSync(authDir, { recursive: true, force: true }); } catch {}
+          safeRm(authDir);
         }
       }
 
       if (connection === "close") {
-        console.log("⚠ Connection closed before success for", cleaned);
+        const code = lastDisconnect?.error?.output?.statusCode;
+        console.log(
+          "⚠ Connection closed for",
+          cleaned,
+          "status:",
+          code || "unknown"
+        );
+
         const rec = sessionRegistry.get(cleaned);
         if (rec) clearTimeout(rec.timeout);
         sessionRegistry.delete(cleaned);
+
+        // If some weird error, clean dir too
+        if (code && code !== 428) {
+          safeRm(authDir);
+        }
       }
     });
 
-    // request pairing code (string)
-    const pairingCode = await sock.requestPairingCode(cleaned);
+    // ask WhatsApp for pairing code
+    let pairingCode;
+    try {
+      pairingCode = await sock.requestPairingCode(cleaned);
+    } catch (err) {
+      console.error("❌ requestPairingCode failed:", err?.output || err);
+
+      const status = err?.output?.statusCode;
+      if (status === 428) {
+        return res.json({
+          status: false,
+          message:
+            "WhatsApp rejected this pairing request (428). Wait a few minutes and try again.",
+        });
+      }
+
+      return res.json({
+        status: false,
+        message:
+          "Failed to ask WhatsApp for a pairing code. Please try again.",
+      });
+    }
+
     console.log("🔐 Pairing code for", cleaned, pairingCode);
 
     return res.json({
@@ -137,43 +168,25 @@ ${base64Session}
       brand: BRAND,
       code: pairingCode,
       message:
-        "Open WhatsApp → Linked devices → Link a device → enter this code.",
+        "Open WhatsApp → Linked devices → Link a device → ‘Enter code’ and type this code.",
     });
   } catch (e) {
-    console.error(e);
+    console.error("POST /api/pair error:", e);
     return res.json({
       status: false,
       message: "Server error. Please try again.",
-      error: String(e),
     });
   }
 });
 
-// 🟢 GET /api/session?phone=9477xxxxxxx – check if session ready
-app.get("/api/session", (req, res) => {
-  const cleaned = (req.query.phone || "").toString().replace(/\D/g, "");
-  const session = readySessions.get(cleaned);
-
-  if (!session) {
-    return res.json({ ready: false });
-  }
-
-  // you can delete after first read
-  readySessions.delete(cleaned);
-
-  return res.json({
-    ready: true,
-    brand: BRAND,
-    session,
-  });
-});
-
-// 🟢 Root – serve the UI page
+/*───────────────────────────────────────
+  Root – serve HTML UI
+────────────────────────────────────────*/
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "pair.html"));
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>
-  console.log(`🚀 ${BRAND} Session Server running on port ${PORT}`)
+  console.log(`🚀 King RANUX Session Server running on port ${PORT}`)
 );

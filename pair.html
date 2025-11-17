@@ -187,27 +187,6 @@
     .progress-bar.expired{
       background:#ef4444;
     }
-    .session-area{
-      margin-top:16px;font-size:.8rem;animation:fadeIn .45s ease-out;
-    }
-    textarea{
-      width:100%;margin-top:8px;
-      background:rgba(15,23,42,.98);
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.75);
-      padding:10px 12px;resize:vertical;
-      min-height:130px;max-height:260px;
-      color:#e5e7eb;font-family:ui-monospace,Menlo,Consolas,monospace;
-      font-size:.78rem;outline:none;
-    }
-    .copy-btn{
-      margin-top:8px;padding:8px 13px;
-      border-radius:999px;border:1px solid rgba(52,211,153,.8);
-      background:rgba(6,95,70,.6);
-      color:#bbf7d0;font-size:.78rem;
-      cursor:pointer;transition:.15s;
-    }
-    .copy-btn:active{transform:scale(.97);filter:brightness(.97)}
     .footer{
       margin-top:18px;font-size:.7rem;text-align:center;color:#9ca3af;
     }
@@ -225,7 +204,8 @@
     <h1>Link with phone number</h1>
     <p class="subtitle">
       Enter your WhatsApp number with country code to generate a
-      <strong>King RANUX</strong> SESSION_ID.
+      <strong>King RANUX</strong> SESSION_ID.<br/>
+      After pairing, the SESSION_ID will be sent <strong>only to your WhatsApp chat</strong>.
     </p>
 
     <label for="phone">Phone number (with country code)</label>
@@ -251,20 +231,12 @@
       </div>
     </div>
 
-    <div id="sessionWrap" class="session-area" style="display:none">
-      <div>✅ Session ready! It has also been sent to your WhatsApp chat.</div>
-      <textarea id="sessionText" readonly></textarea>
-      <button class="copy-btn" onclick="copySession()">Copy SESSION_ID</button>
-    </div>
-
     <div class="footer">
       © 2025 <span class="brand">KING RANUX</span> • All Rights Reserved
     </div>
   </div>
 
   <script>
-    let currentPhone = "";
-    let pollTimer = null;
     let codeTimer = null;
     const codeTotalSeconds = 60;
 
@@ -345,10 +317,8 @@
         return;
       }
 
-      currentPhone = phone;
-      if(pollTimer){ clearInterval(pollTimer); pollTimer=null; }
+      if(codeTimer){ clearInterval(codeTimer); codeTimer=null; }
       resetCodeUI();
-      document.getElementById("sessionWrap").style.display="none";
       setStatus("Sending request to server...");
 
       try{
@@ -368,10 +338,12 @@
 
         document.getElementById("pairCode").textContent = data.code;
         document.getElementById("codeBox").style.display="block";
-        setStatus("📲 Open WhatsApp → Linked devices → Link a device → enter this code.");
+        setStatus(
+          "📲 Open WhatsApp → Linked devices → Link a device → enter this code.<br>"+
+          "Once linked, your SESSION_ID will be sent <strong>directly to your WhatsApp chat</strong>."
+        );
 
         startCodeTimer();
-        startPollingForSession();
       }catch(e){
         console.error(e);
         setLoading(false);
@@ -382,44 +354,15 @@
       }
     }
 
-    function startPollingForSession(){
-      const cleaned = currentPhone.replace(/\D/g,"");
-      if(!cleaned) return;
-
-      pollTimer = setInterval(async ()=>{
-        try{
-          const res = await fetch("/api/session?phone="+encodeURIComponent(cleaned));
-          const data = await res.json();
-          if(data.ready){
-            clearInterval(pollTimer);
-            pollTimer=null;
-            document.getElementById("sessionText").value = data.session;
-            document.getElementById("sessionWrap").style.display="block";
-            setStatus("🎉 Session generated! Check your WhatsApp and copy from here if needed.");
-          }
-        }catch(e){
-          console.error("poll error",e);
-        }
-      },4000);
-    }
-
-    async function copySession(){
-      const text=document.getElementById("sessionText").value;
-      if(!text) return;
-      try{
-        await navigator.clipboard.writeText(text);
-        setStatus("✅ SESSION_ID copied to clipboard.");
-      }catch(e){
-        setStatus("SESSION_ID: copied (if clipboard is allowed).");
-      }
-    }
-
     async function copyPairCode(){
       const code=document.getElementById("pairCode").textContent.trim();
       if(!code) return;
       try{
         await navigator.clipboard.writeText(code);
-        setStatus("✅ Pair code copied. Paste it in WhatsApp ‘Link a device’ screen.");
+        setStatus(
+          "✅ Pair code copied. Paste it in WhatsApp ‘Link a device’ screen.<br>"+
+          "After linking, check your WhatsApp for the SESSION_ID."
+        );
       }catch(e){
         setStatus("Pair code: "+code+"<br>(Copy manually if clipboard is blocked.)");
       }

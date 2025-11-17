@@ -1,7 +1,7 @@
 {
   "name": "king-ranux-session",
   "version": "1.0.0",
-  "description": "King Ranux WhatsApp Pairing & Session Generator",
+  "description": "King RANUX WhatsApp Pairing & Session Generator",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -13,6 +13,6 @@
     "express": "^4.19.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": "18.x"
   }
 }
