@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>King RANUX • Session Generator</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{
+      min-height:100vh;
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+      background:radial-gradient(circle at top,#4c1d95,#020617 55%,#000);
+      color:#f9fafb;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      overflow:hidden;
+    }
+    .bg-orb{
+      position:fixed;
+      width:420px;height:420px;
+      background:radial-gradient(circle at 30% 0,#fb7185,#ec4899 35%,transparent 70%);
+      opacity:.17;
+      filter:blur(2px);
+      top:-120px;right:-80px;
+      animation:float 14s ease-in-out infinite alternate;
+      pointer-events:none;
+    }
+    .bg-orb2{
+      position:fixed;
+      width:300px;height:300px;
+      background:radial-gradient(circle at 10% 90%,#38bdf8,#a855f7 40%,transparent 75%);
+      opacity:.18;
+      bottom:-120px;left:-60px;
+      animation:float2 18s ease-in-out infinite alternate;
+      pointer-events:none;
+    }
+    @keyframes float{to{transform:translate3d(-15px,20px,0) scale(1.05)}}
+    @keyframes float2{to{transform:translate3d(10px,-25px,0) scale(1.1)}}
+    .card{
+      position:relative;
+      width:100%;max-width:420px;
+      background:linear-gradient(145deg,rgba(15,23,42,.96),rgba(15,23,42,.86));
+      border-radius:28px;
+      padding:26px 22px 22px;
+      box-shadow:0 22px 70px rgba(15,23,42,.9);
+      border:1px solid rgba(148,163,184,.28);
+      backdrop-filter:blur(18px);
+      animation:slideUp .6s cubic-bezier(.16,.9,.3,1.2);
+    }
+    @keyframes slideUp{
+      from{transform:translateY(35px) scale(.96);opacity:0}
+      to{transform:translateY(0) scale(1);opacity:1}
+    }
+    .avatar{
+      width:70px;height:70px;border-radius:999px;
+      margin:0 auto 10px;
+      background:conic-gradient(from 210deg,#22d3ee,#a855f7,#fb7185,#22c55e,#22d3ee);
+      padding:2px;
+      display:flex;align-items:center;justify-content:center;
+      animation:spinSlow 16s linear infinite;
+    }
+    .avatar-inner{
+      width:100%;height:100%;border-radius:inherit;
+      background:radial-gradient(circle at 30% 0,#0f172a,#020617);
+      display:flex;align-items:center;justify-content:center;
+      font-weight:700;font-size:26px;letter-spacing:.05em;
+      color:#e5e7eb;
+    }
+    @keyframes spinSlow{to{transform:rotate(360deg)}}
+    h1{text-align:center;font-size:1.35rem;margin-bottom:4px}
+    .subtitle{
+      text-align:center;
+      font-size:.83rem;
+      color:#cbd5f5;
+      margin-bottom:18px;
+    }
+    .subtitle strong{color:#c4b5fd}
+    label{
+      display:block;font-size:.8rem;
+      margin-bottom:5px;color:#9ca3af;
+    }
+    .input{
+      width:100%;padding:13px 15px;
+      background:rgba(15,23,42,.9);
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.75);
+      color:#e5e7eb;font-size:.95rem;
+      outline:none;transition:.18s;
+    }
+    .input:focus{
+      border-color:#e879f9;
+      box-shadow:0 0 0 1px rgba(236,72,153,.45);
+    }
+    .btn{
+      width:100%;margin-top:16px;
+      padding:13px 16px;border-radius:999px;
+      border:none;
+      background:linear-gradient(135deg,#db2777,#a855f7);
+      color:#f9fafb;font-weight:600;
+      font-size:.95rem;letter-spacing:.06em;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;
+      gap:8px;transition:.12s;
+      box-shadow:0 18px 45px rgba(147,51,234,.65);
+    }
+    .btn:disabled{opacity:.6;box-shadow:none;cursor:default}
+    .btn:not(:disabled):active{
+      transform:translateY(1px) scale(.99);
+      box-shadow:0 12px 30px rgba(147,51,234,.55);
+      filter:brightness(.97);
+    }
+    .spinner{
+      width:16px;height:16px;border-radius:999px;
+      border:2px solid rgba(248,250,252,.4);
+      border-top-color:#f9fafb;
+      animation:spin .7s linear infinite;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .status{
+      margin-top:14px;font-size:.85rem;text-align:center;
+    }
+    .status strong{color:#fbbf24}
+    .code-box{
+      margin-top:14px;padding:10px 14px;
+      border-radius:18px;
+      background:rgba(15,23,42,.97);
+      border:1px dashed rgba(251,191,36,.8);
+      font-family:ui-monospace,Menlo,Consolas,monospace;
+      font-size:.96rem;text-align:center;
+      animation:fadeIn .4s ease-out;
+    }
+    .code-label{
+      font-size:.78rem;color:#f97316;
+      font-weight:700;letter-spacing:.12em;
+    }
+    @keyframes fadeIn{
+      from{opacity:0;transform:translateY(6px)}
+      to{opacity:1;transform:translateY(0)}
+    }
+    .code-value{
+      margin-top:6px;
+      font-size:1.2rem;
+      letter-spacing:0.18em;
+      cursor:pointer;
+      user-select:all;
+    }
+    .copy-code-btn{
+      margin-top:8px;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid rgba(129,230,217,.9);
+      background:rgba(8,47,73,.85);
+      color:#a5f3fc;
+      font-size:.76rem;
+      cursor:pointer;
+      transition:.15s;
+    }
+    .copy-code-btn:active{
+      transform:scale(.97);
+      filter:brightness(.97);
+    }
+    .copy-code-btn:disabled{
+      opacity:.55;
+      cursor:default;
+    }
+    .timer-row{
+      margin-top:8px;
+      font-size:.75rem;
+      color:#e5e7eb;
+    }
+    .progress-track{
+      margin-top:4px;
+      width:100%;
+      height:5px;
+      border-radius:999px;
+      background:rgba(15,23,42,.7);
+      overflow:hidden;
+    }
+    .progress-bar{
+      height:100%;
+      width:100%;
+      border-radius:inherit;
+      background:linear-gradient(90deg,#22c55e,#eab308,#f97316,#ef4444);
+      transition:width .35s linear;
+    }
+    .progress-bar.expired{
+      background:#ef4444;
+    }
+    .session-area{
+      margin-top:16px;font-size:.8rem;animation:fadeIn .45s ease-out;
+    }
+    textarea{
+      width:100%;margin-top:8px;
+      background:rgba(15,23,42,.98);
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.75);
+      padding:10px 12px;resize:vertical;
+      min-height:130px;max-height:260px;
+      color:#e5e7eb;font-family:ui-monospace,Menlo,Consolas,monospace;
+      font-size:.78rem;outline:none;
+    }
+    .copy-btn{
+      margin-top:8px;padding:8px 13px;
+      border-radius:999px;border:1px solid rgba(52,211,153,.8);
+      background:rgba(6,95,70,.6);
+      color:#bbf7d0;font-size:.78rem;
+      cursor:pointer;transition:.15s;
+    }
+    .copy-btn:active{transform:scale(.97);filter:brightness(.97)}
+    .footer{
+      margin-top:18px;font-size:.7rem;text-align:center;color:#9ca3af;
+    }
+    .brand{font-weight:600;color:#c4b5fd}
+  </style>
+</head>
+<body>
+  <div class="bg-orb"></div>
+  <div class="bg-orb2"></div>
+
+  <div class="card">
+    <div class="avatar">
+      <div class="avatar-inner">KR</div>
+    </div>
+    <h1>Link with phone number</h1>
+    <p class="subtitle">
+      Enter your WhatsApp number with country code to generate a
+      <strong>King RANUX</strong> SESSION_ID.
+    </p>
+
+    <label for="phone">Phone number (with country code)</label>
+    <input id="phone" class="input" placeholder="+94 7X XXX XXXX" />
+
+    <button id="submitBtn" class="btn" onclick="startPairing()">
+      <span id="btnText">SUBMIT</span>
+      <div id="btnSpin" class="spinner" style="display:none"></div>
+    </button>
+
+    <div id="status" class="status"></div>
+
+    <div id="codeBox" class="code-box" style="display:none">
+      <div class="code-label">PAIRING CODE</div>
+      <div id="pairCode" class="code-value" onclick="copyPairCode()"></div>
+      <button id="copyCodeBtn" class="copy-code-btn" onclick="copyPairCode()">Copy code</button>
+
+      <div class="timer-row">
+        <span id="timerText">Expires in 60s</span>
+        <div class="progress-track">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="sessionWrap" class="session-area" style="display:none">
+      <div>✅ Session ready! It has also been sent to your WhatsApp chat.</div>
+      <textarea id="sessionText" readonly></textarea>
+      <button class="copy-btn" onclick="copySession()">Copy SESSION_ID</button>
+    </div>
+
+    <div class="footer">
+      © 2025 <span class="brand">KING RANUX</span> • All Rights Reserved
+    </div>
+  </div>
+
+  <script>
+    let currentPhone = "";
+    let pollTimer = null;
+    let codeTimer = null;
+    const codeTotalSeconds = 60;
+
+    function setLoading(isLoading){
+      const btn=document.getElementById("submitBtn");
+      const txt=document.getElementById("btnText");
+      const spin=document.getElementById("btnSpin");
+      btn.disabled=isLoading;
+      spin.style.display=isLoading?"block":"none";
+      txt.textContent=isLoading?"PROCESSING...":"SUBMIT";
+    }
+
+    function setStatus(html){
+      document.getElementById("status").innerHTML = html || "";
+    }
+
+    function resetCodeUI(){
+      const codeBox=document.getElementById("codeBox");
+      const copyBtn=document.getElementById("copyCodeBtn");
+      const progress=document.getElementById("progressBar");
+      const timerText=document.getElementById("timerText");
+      if(codeBox) codeBox.style.display="none";
+      if(copyBtn) copyBtn.disabled=false;
+      if(progress){
+        progress.style.width="100%";
+        progress.classList.remove("expired");
+      }
+      if(timerText) timerText.textContent="Expires in 60s";
+      if(codeTimer){ clearInterval(codeTimer); codeTimer=null; }
+    }
+
+    function startCodeTimer(){
+      const timerText=document.getElementById("timerText");
+      const progress=document.getElementById("progressBar");
+      const copyBtn=document.getElementById("copyCodeBtn");
+      let remaining = codeTotalSeconds;
+
+      if(!timerText || !progress) return;
+
+      timerText.textContent = "Expires in 60s";
+      progress.style.width = "100%";
+      progress.classList.remove("expired");
+      if(copyBtn) copyBtn.disabled = false;
+
+      if(codeTimer){ clearInterval(codeTimer); }
+      codeTimer = setInterval(()=>{
+        remaining--;
+        if(remaining <= 0){
+          clearInterval(codeTimer);
+          codeTimer = null;
+          timerText.textContent = "Code expired";
+          progress.style.width = "0%";
+          progress.classList.add("expired");
+          if(copyBtn) copyBtn.disabled = true;
+          setStatus("⌛ Pair code expired. Tap SUBMIT again to generate a new code.");
+          return;
+        }
+        timerText.textContent = "Expires in "+remaining+"s";
+        progress.style.width = (remaining / codeTotalSeconds * 100) + "%";
+      },1000);
+    }
+
+    async function startPairing(){
+      const phoneInput = document.getElementById("phone");
+      const phone = phoneInput.value.trim();
+
+      if(!phone){
+        setStatus("❌ <strong>Please enter your WhatsApp number.</strong>");
+        return;
+      }
+
+      const cleaned = phone.replace(/\D/g,"");
+      if(cleaned.length !== 11 || !cleaned.startsWith("94")){
+        setStatus(
+          "❌ <strong>Please enter a valid phone number.</strong><br>"+
+          "Example: <strong>+94 7X XXX XXXX</strong>"
+        );
+        return;
+      }
+
+      currentPhone = phone;
+      if(pollTimer){ clearInterval(pollTimer); pollTimer=null; }
+      resetCodeUI();
+      document.getElementById("sessionWrap").style.display="none";
+      setStatus("Sending request to server...");
+
+      try{
+        setLoading(true);
+        const res = await fetch("/api/pair",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({ phone })
+        });
+        const data = await res.json();
+        setLoading(false);
+
+        if(!data.status){
+          setStatus("❌ Error: "+(data.message||"Something went wrong. Please try again."));
+          return;
+        }
+
+        document.getElementById("pairCode").textContent = data.code;
+        document.getElementById("codeBox").style.display="block";
+        setStatus("📲 Open WhatsApp → Linked devices → Link a device → enter this code.");
+
+        startCodeTimer();
+        startPollingForSession();
+      }catch(e){
+        console.error(e);
+        setLoading(false);
+        setStatus(
+          "❌ Network error: "+e.message+
+          "<br>Please check your internet and try again."
+        );
+      }
+    }
+
+    function startPollingForSession(){
+      const cleaned = currentPhone.replace(/\D/g,"");
+      if(!cleaned) return;
+
+      pollTimer = setInterval(async ()=>{
+        try{
+          const res = await fetch("/api/session?phone="+encodeURIComponent(cleaned));
+          const data = await res.json();
+          if(data.ready){
+            clearInterval(pollTimer);
+            pollTimer=null;
+            document.getElementById("sessionText").value = data.session;
+            document.getElementById("sessionWrap").style.display="block";
+            setStatus("🎉 Session generated! Check your WhatsApp and copy from here if needed.");
+          }
+        }catch(e){
+          console.error("poll error",e);
+        }
+      },4000);
+    }
+
+    async function copySession(){
+      const text=document.getElementById("sessionText").value;
+      if(!text) return;
+      try{
+        await navigator.clipboard.writeText(text);
+        setStatus("✅ SESSION_ID copied to clipboard.");
+      }catch(e){
+        setStatus("SESSION_ID: copied (if clipboard is allowed).");
+      }
+    }
+
+    async function copyPairCode(){
+      const code=document.getElementById("pairCode").textContent.trim();
+      if(!code) return;
+      try{
+        await navigator.clipboard.writeText(code);
+        setStatus("✅ Pair code copied. Paste it in WhatsApp ‘Link a device’ screen.");
+      }catch(e){
+        setStatus("Pair code: "+code+"<br>(Copy manually if clipboard is blocked.)");
+      }
+    }
+  </script>
+</body>
+</html>
