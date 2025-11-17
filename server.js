@@ -1,5 +1,11 @@
-// server.js – King RANUX Session Server
+/*************************************************************
+ *  KING RANUX SESSION SERVER
+ *************************************************************/
 
+/* === IMPORTANT FIX FOR RENDER + NODE 18 === */
+global.crypto = require("crypto"); // required for Baileys pairing
+
+/* === IMPORTS === */
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -11,17 +17,17 @@ const {
   useMultiFileAuthState,
 } = require("@whiskeysockets/baileys");
 
+/* === CONFIG === */
 const app = express();
 const BRAND = "King RANUX";
-
-// phone -> { timeout }
-const sessionRegistry = new Map();
-const SESSION_TIMEOUT = 90_000; // 90 seconds
+const SESSION_TIMEOUT = 90_000; // 90s
+const sessionRegistry = new Map(); // phone -> timeout
 
 app.use(express.json());
 app.use(cors());
 app.use(express.static(__dirname)); // serve pair.html + assets
 
+/* === HELPERS === */
 function safeRm(dir) {
   try {
     if (fs.existsSync(dir)) {
@@ -32,15 +38,14 @@ function safeRm(dir) {
   }
 }
 
-/*───────────────────────────────────────
-  POST /api/pair
-────────────────────────────────────────*/
+/*************************************************************
+ *  API: POST /api/pair
+ *************************************************************/
 app.post("/api/pair", async (req, res) => {
   try {
     const phoneRaw = (req.body.phone || "").toString();
-    const cleaned = phoneRaw.replace(/\D/g, ""); // keep digits only
+    const cleaned = phoneRaw.replace(/\D/g, ""); // digits only
 
-    // Basic LK validation: +94 7X XXX XXXX  =>  11 digits, starts with 94
     if (!cleaned.startsWith("94") || cleaned.length !== 11) {
       return res.json({
         status: false,
@@ -81,6 +86,9 @@ app.post("/api/pair", async (req, res) => {
 
     sessionRegistry.set(cleaned, { timeout });
 
+    /*********************************************************
+     *  SOCKET EVENTS
+     *********************************************************/
     sock.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect } = update || {};
 
@@ -99,20 +107,17 @@ app.post("/api/pair", async (req, res) => {
 
 ${base64Session}
 
-
 ✔ Pairing Successful!
-
 📌 Copy this SESSION_ID into your bot.
 ⚠ Do NOT share this with anyone!`;
 
           await sock.sendMessage(jid, { text });
 
-          console.log("🎉 Session generated and sent to WhatsApp:", cleaned);
+          console.log("🎉 Session sent to WhatsApp chat:", cleaned);
         } catch (err) {
           console.error("Error after connection open for", cleaned, err);
         } finally {
-          const rec = sessionRegistry.get(cleaned);
-          if (rec) clearTimeout(rec.timeout);
+          clearTimeout(timeout);
           sessionRegistry.delete(cleaned);
           safeRm(authDir);
         }
@@ -120,55 +125,44 @@ ${base64Session}
 
       if (connection === "close") {
         const code = lastDisconnect?.error?.output?.statusCode;
-        console.log(
-          "⚠ Connection closed for",
-          cleaned,
-          "status:",
-          code || "unknown"
-        );
-
-        const rec = sessionRegistry.get(cleaned);
-        if (rec) clearTimeout(rec.timeout);
+        console.log("⚠ Connection closed:", cleaned, "status:", code || "unknown");
+        clearTimeout(timeout);
         sessionRegistry.delete(cleaned);
-
-        // If some weird error, clean dir too
-        if (code && code !== 428) {
-          safeRm(authDir);
-        }
+        if (code && code !== 428) safeRm(authDir);
       }
     });
 
-    // ask WhatsApp for pairing code
+    /*********************************************************
+     *  REQUEST PAIRING CODE
+     *********************************************************/
     let pairingCode;
     try {
       pairingCode = await sock.requestPairingCode(cleaned);
     } catch (err) {
       console.error("❌ requestPairingCode failed:", err?.output || err);
 
-      const status = err?.output?.statusCode;
-      if (status === 428) {
+      if (err?.output?.statusCode === 428) {
         return res.json({
           status: false,
           message:
-            "WhatsApp rejected this pairing request (428). Wait a few minutes and try again.",
+            "WhatsApp blocked this pairing request (428). Try again in a few minutes.",
         });
       }
 
       return res.json({
         status: false,
-        message:
-          "Failed to ask WhatsApp for a pairing code. Please try again.",
+        message: "Failed to ask WhatsApp for a pairing code. Please try again.",
       });
     }
 
-    console.log("🔐 Pairing code for", cleaned, pairingCode);
+    console.log("🔐 Pairing code:", pairingCode);
 
     return res.json({
       status: true,
       brand: BRAND,
       code: pairingCode,
       message:
-        "Open WhatsApp → Linked devices → Link a device → ‘Enter code’ and type this code.",
+        "Open WhatsApp → Linked devices → Link a device → Enter code and type this code.",
     });
   } catch (e) {
     console.error("POST /api/pair error:", e);
@@ -179,14 +173,17 @@ ${base64Session}
   }
 });
 
-/*───────────────────────────────────────
-  Root – serve HTML UI
-────────────────────────────────────────*/
+/*************************************************************
+ *  UI ROUTE
+ *************************************************************/
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "pair.html"));
 });
 
+/*************************************************************
+ *  START SERVER
+ *************************************************************/
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () =>
-  console.log(`🚀 King RANUX Session Server running on port ${PORT}`)
-);
+app.listen(PORT, () => {
+  console.log(`🚀 King RANUX Session Server running on port ${PORT}`);
+});
